@@ -1,107 +1,106 @@
-const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
-const router = express.Router();
+const mongodb = require('../db/connect');
+const ObjectId = require('mongodb').ObjectId;
 
-// MongoDB connection string
-const MONGODB_URI = process.env.MONGODB_URI;
 
-// Define a helper function to get the MongoDB client
-const getClient = async () => {
-  const client = new MongoClient(MONGODB_URI);
-  await client.connect();
-  return client;
+const getAllMovies = async (_req, res, next) => {
+  try {
+    const movies = await mongodb.getDb().db('MRS').db.collection('Movies').find().toArray();
+
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(movies);
+  } catch (error) {
+    console.error('Error retrieving movies:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+const getMovieById = async (req, res, next) => {
+  try {
+    const movieId = req.params.id;
+
+    if (!ObjectId.isValid(movieId)) {
+      return res.status(400).json({ message: 'Invalid movie ID' });
+    }
+
+    const objectId = new ObjectId(movieId);
+    const db = mongodb.getDb();
+    const movie = await db.collection('Movies').findOne({ _id: objectId });
+
+    if (!movie) {
+      return res.status(404).json({ message: 'Movie not found' });
+    }
+
+    res.status(200).json(movie);
+  } catch (error) {
+    console.error('Error retrieving movie:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
-// GET /movies
-router.get('/', async (req, res) => {
-  try {
-    const client = await getClient();
-    const db = client.db('MRS');
-    const movies = await db.collection('movies').find().toArray();
-    res.json(movies);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.close();
-  }
-});
 
-// GET /movies/:id
-router.get('/:id', async (req, res) => {
+const createMovie = async (req, res) => {
   try {
-    const client = await getClient();
-    const db = client.db('MRS');
-    const movieId = req.params.id;
-    const movie = await db.collection('movies').findOne({ _id: ObjectId(movieId) });
-    if (movie) {
-      res.json(movie);
+    const movie = {
+      description: req.body.description,
+      director: req.body.director,
+      duration: req.body.director,
+      genre: req.body.description,
+      title:req.body.title,
+      writer: req.body.writer
+    };
+    const response = await mongodb.getDb().db("MRS").collection('Movies').insertOne(movie);
+    console.log('Response:', response);
+    if (response.acknowledged) {
+      res.status(201).json(response);
     } else {
-      res.status(404).json({ error: 'Movie not found' });
+      res.status(500).json(response.error || 'Some error occurred while creating the movie.');
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.close();
+    console.error('Error creating movie:', error);
+    res.status(500).json(error.message || 'Some error occurred while creating the movie.');
   }
-});
+};
 
-// POST /movies
-router.post('/', async (req, res) => {
+const updateMovie = async (req, res) => {
   try {
-    const client = await getClient();
-    const db = client.db('MRS');
-    const movie = req.body;
-    const result = await db.collection('movies').insertOne(movie);
-    res.json(result.ops[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.close();
-  }
-});
+    const movieId = new ObjectId(req.params.id);
+    const movie = {
+      description: req.body.description,
+      director: req.body.director,
+      duration: req.body.director,
+      genre: req.body.description,
+      title:req.body.title,
+      writer: req.body.writer
+    };
 
-// PUT /movies/:id
-router.put('/:id', async (req, res) => {
-  try {
-    const client = await getClient();
-    const db = client.db('MRS');
-    const movieId = req.params.id;
-    const updatedMovie = req.body;
-    const result = await db.collection('movies').updateOne({ _id: ObjectId(movieId) }, { $set: updatedMovie });
-    if (result.modifiedCount > 0) {
-      res.json({ message: 'Movie updated successfully' });
+    const response = await mongodb.getDb().db("MRS").collection("Movies").replaceOne({ _id: movieId }, movie);
+    console.log(response);
+
+    if (response.modifiedCount > 0) {
+      res.status(204).send();
     } else {
-      res.status(404).json({ error: 'Movie not found' });
+      res.status(500).json(response.error || "Error encountered: The movie was not updated");
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.close();
+    console.error("Error updating movie:", error);
+    res.status(400).json("Invalid JSON payload");
   }
-});
+};
 
-// DELETE /movies/:id
-router.delete('/:id', async (req, res) => {
-  try {
-    const client = await getClient();
-    const db = client.db('MRS');
-    const movieId = req.params.id;
-    const result = await db.collection('movies').deleteOne({ _id: ObjectId(movieId) });
-    if (result.deletedCount > 0) {
-      res.json({ message: 'Movie deleted successfully' });
-    } else {
-      res.status(404).json({ error: 'Movie not found' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.close();
+const deleteMovie = async (req, res) => {
+  const movieId = new ObjectId(req.params.id);
+  const response = await mongodb.getDb().db("MRS").collection('Movies').deleteOne({ _id: movieId }, true);
+  console.log(response);
+  if (response.deletedCount > 0) {
+    res.status(204).send();
+  } else {
+    res.status(500).json(response.error || 'An error occurred while trying to delete the movie. Please try again.');
   }
-});
+};
 
-module.exports = router;
+module.exports = {
+  getAllMovies,
+  getMovieById,
+  createMovie,
+  updateMovie,
+  deleteMovie
+};

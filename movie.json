@@ -1,0 +1,12 @@
+{
+    "movie":{
+        "Title":"Avengers: Inifinity War",
+        "Year": "2018",
+        "Genre": "Science Fiction",
+        "Description": "Will Thanos win this war against humanity? The avengers are out to prevent the destruction of the world",
+        "Duration": "3 hours",
+        "Director": "Christopher Markus",
+        "Writer": "Stephen McFeely"
+
+    }
+}
